@@ -25,8 +25,8 @@ workstation or system, and that credentials for the OpenTravel OTM Repository mu
 
 ### Download and Installation
 The Exporter utility can be accessed by downloading the zip file from the latest release of this project (see
-[here](https://github.com/orgs/OpenTravel/)).  Once downloaded, simply unzip the file and run the `otm_exporter.bat` file (for Windows)
-or `otm_exporter.sh` (for Linux or Mac) to launch the tool.
+[here](https://github.com/OpenTravel/ota2-exporter-utility/releases/latest)).  Once downloaded, simply unzip the file and
+run the `otm_exporter.bat` file (for Windows) or `otm_exporter.sh` (for Linux or Mac) to launch the tool.
 
 For now, using the tool is fairly simple in that the only values that must be provided are the following:
 
