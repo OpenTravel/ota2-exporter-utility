@@ -112,7 +112,7 @@
 							<descriptors>
 								<descriptor>${project.basedir}/src/main/assembly/assembly.xml</descriptor>
 							</descriptors>
-							<finalName>ota2-exporter-tool</finalName>
+							<finalName>ota2-exporter-utility</finalName>
 						</configuration>
 					</execution>
 				</executions>

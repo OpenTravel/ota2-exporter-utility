@@ -30,7 +30,7 @@
 	<fileSets>
 		<fileSet>
 			<directory>${project.basedir}/src/main/bin</directory>
-			<outputDirectory>OTM-Exporter-Tool</outputDirectory>
+			<outputDirectory>OTM-Exporter-Utility</outputDirectory>
 			<fileMode>755</fileMode>
 			<includes>
 				<include>*.sh</include>
@@ -38,7 +38,7 @@
 		</fileSet>
 		<fileSet>
 			<directory>${project.basedir}/target/libs</directory>
-			<outputDirectory>OTM-Exporter-Tool/lib</outputDirectory>
+			<outputDirectory>OTM-Exporter-Utility/lib</outputDirectory>
 		</fileSet>
 	</fileSets>
 	
