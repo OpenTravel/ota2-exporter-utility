@@ -33,6 +33,7 @@
 			<outputDirectory>OTM-Exporter-Utility</outputDirectory>
 			<fileMode>755</fileMode>
 			<includes>
+				<include>*.bat</include>
 				<include>*.sh</include>
 			</includes>
 		</fileSet>

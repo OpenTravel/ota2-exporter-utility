@@ -36,6 +36,7 @@ import okhttp3.Response;
  */
 public class RepositoryExporter implements AutoCloseable {
 
+    private static final String OTM_REPOSITORY_ENDPOINT = "https://www.opentravelmodel.net";
     private static final String OTM_ROOT_NAMESPACE = "http://www.opentravel.org/OTM/";
     private static final List<String> EXCLUDED_NAMES = Arrays.asList( "strawman", "test", "demo" );
     private static final File EXPORTS_FOLDER = new File( System.getProperty( "java.io.tmpdir" ) );
@@ -43,21 +44,71 @@ public class RepositoryExporter implements AutoCloseable {
     private RemoteRepository repository;
     private RepositoryFileManager fileManager;
     private File exportFolder;
-    private String ghOrganizationName;
+    private String ghOwnerName;
+    private boolean ownerIsOrganization;
     private String ghRepositoryName;
     private String ghAccessToken;
 
-    public RepositoryExporter(String ghOrganizationName, String ghRepositoryName, String ghAccessToken)
-        throws RepositoryException, IOException {
+    /**
+     * Constructor that specifies the identifying information of the export repository and the access token to use when
+     * creating it.
+     * 
+     * @param ghOwnerName the name of the user or organization that will own the export repository
+     * @param ownerIsOrganization flag indicating whether the owner is an organization or a user
+     * @param ghRepositoryName the name of the repository to export
+     * @param ghAccessToken the access token to use when creating the repository
+     * @throws RepositoryException thrown if the repository already exists or cannot be created
+     * @throws IOException thrown if an error occurs while writing data to the repository
+     */
+    public RepositoryExporter(String ghOwnerName, boolean ownerIsOrganization, String ghRepositoryName,
+        String ghAccessToken) throws RepositoryException, IOException {
         this.repository = (RemoteRepository) RepositoryManager.getDefault().getRepository( "Opentravel" );
         this.fileManager = RepositoryManager.getDefault().getFileManager();
-        this.ghOrganizationName = ghOrganizationName;
+        this.ghOwnerName = ghOwnerName;
+        this.ownerIsOrganization = ownerIsOrganization;
         this.ghRepositoryName = ghRepositoryName;
         this.ghAccessToken = ghAccessToken;
 
         EXPORTS_FOLDER.mkdirs();
         this.exportFolder = Files.createTempDirectory( EXPORTS_FOLDER.toPath(), "otm_export_" ).toFile();
 
+    }
+
+    /**
+     * Tests the connection to the OpenTravel OTM repository and returns true if the connection and user authentication
+     * was successful.
+     * 
+     * @return boolean
+     */
+    public boolean testOTMConnection() {
+        boolean result = false;
+
+        if (repository != null) {
+            try {
+                repository.getUserAuthorization( OTM_ROOT_NAMESPACE ); // Forces call with current credentials
+                result = true;
+
+            } catch (RepositoryException e) {
+                // Ignore and return false
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Updates (or creates) credentials for the OpenTravel OTM repository.
+     * 
+     * @param username the username that will be used to access the OTM repository
+     * @param password the password credential for the OTM user
+     * @throws RepositoryException thrown if the credentials are invalid
+     */
+    public void updateOTMCredentials(String username, String password) throws RepositoryException {
+        RepositoryManager rm = RepositoryManager.getDefault();
+
+        if (repository == null) {
+            repository = rm.addRemoteRepository( OTM_REPOSITORY_ENDPOINT );
+        }
+        rm.setCredentials( repository, username, password );
     }
 
     /**
@@ -170,8 +221,15 @@ public class RepositoryExporter implements AutoCloseable {
     protected String createGitHubRepo() throws IOException {
         OkHttpClient client = new OkHttpClient();
 
+        // Determine the API base URL for repo creation/check
+        String baseRepoUrl = ownerIsOrganization ? "https://api.github.com/orgs/" + ghOwnerName + "/repos"
+            : "https://api.github.com/user/repos";
+
         // Step 1: Check if the repository already exists
-        String repoCheckUrl = "https://api.github.com/repos/" + ghOrganizationName + "/" + ghRepositoryName;
+        String repoCheckUrl =
+            ownerIsOrganization ? "https://api.github.com/repos/" + ghOwnerName + "/" + ghRepositoryName
+                : "https://api.github.com/repos/" + ghOwnerName + "/" + ghRepositoryName;
+
         Request checkRequest =
             new Request.Builder().url( repoCheckUrl ).header( "Authorization", "Bearer " + ghAccessToken )
                 .header( "Accept", "application/vnd.github+json" ).get().build();
@@ -179,7 +237,6 @@ public class RepositoryExporter implements AutoCloseable {
         try (Response checkResponse = client.newCall( checkRequest ).execute()) {
             if (checkResponse.isSuccessful()) {
                 throw new IOException( "Repository already exists: " + ghRepositoryName );
-
             } else if (checkResponse.code() != 404) {
                 throw new IOException(
                     "Error checking repository existence: " + checkResponse.code() + " - " + checkResponse.message() );
@@ -188,19 +245,16 @@ public class RepositoryExporter implements AutoCloseable {
 
         // Step 2: Create the repository if it doesn't exist
         String requestBody = "{\"name\":\"" + ghRepositoryName + "\",\"private\":false}";
-        String orgApiUrl = "https://api.github.com/orgs/" + ghOrganizationName + "/repos";
 
-        Request createRequest = new Request.Builder().url( orgApiUrl )
+        Request createRequest = new Request.Builder().url( baseRepoUrl )
             .header( "Authorization", "Bearer " + ghAccessToken ).header( "Accept", "application/vnd.github+json" )
             .post( RequestBody.create( requestBody, MediaType.parse( "application/json" ) ) ).build();
 
         try (Response createResponse = client.newCall( createRequest ).execute()) {
             if (createResponse.isSuccessful()) {
-                return "https://github.com/" + ghOrganizationName + "/" + ghRepositoryName + ".git";
-
+                return "https://github.com/" + ghOwnerName + "/" + ghRepositoryName + ".git";
             } else if (createResponse.code() == 422) { // Unprocessable Entity, repository name conflict
                 throw new IOException( "Repository conflicts with an existing repository: " + ghRepositoryName );
-
             } else {
                 throw new IOException(
                     "Error creating repository: " + createResponse.code() + " - " + createResponse.message() );
